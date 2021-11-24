@@ -3,11 +3,30 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.multioutput import MultiOutputRegressor
-import xgboost as xgb
+from imblearn.pipeline import Pipeline
+from imblearn.over_sampling import RandomOverSampler
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import log_loss
 import logging
+import time
 
+
+
+#########################
+'''
+multioutput tasks are currently not supported by imblearn
+'''
+#########################
+
+
+
+
+
+
+
+
+
+start = time.perf_counter()
 ## PREPROCESSING
 logging.basicConfig(level=logging.DEBUG)
 
@@ -15,7 +34,7 @@ X_data = pd.read_csv('MechanismOfAction/train_features.csv')
 y_data = pd.read_csv('MechanismOfAction/train_targets_scored.csv')
 
 # delete all unneeded columns
-X_data.drop(columns=['sig_id', 'cp_type', 'c-42', 'c-4', 'c-13', 'c-94', 'c-2', 'c-31'], inplace=True) #, 'c-42', 'c-4', 'c-13', 'c-94', 'c-2', 'c-31'
+X_data.drop(columns=['sig_id', 'cp_type'], inplace=True) #, 'c-42', 'c-4', 'c-13', 'c-94', 'c-2', 'c-31'
 y_data.drop(columns=['sig_id'], inplace=True)
 
 X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, 
@@ -31,23 +50,26 @@ for col in ['cp_dose']:
     X_train[col] = label_encoder.fit_transform(X_train[col])
     X_test[col] = label_encoder.transform(X_test[col])
 
+# Feature Reduction & model
 
-
-## XGBoost MODEL
 logging.info('Training model')
-multioutputregressor = MultiOutputRegressor(xgb.XGBRegressor(tree_method='gpu_hist', objective='reg:logistic', eval_metric='logloss')).fit(X_train, y_train)
+
+
+ros = RandomOverSampler(random_state=174, shrinkage=0.5)
+random_forest = RandomForestRegressor(max_depth=10, random_state=174, n_jobs=4)
+pipe = Pipeline([('overSampler', ros), ('random_forest', random_forest)])
+pipe.fit(X_train, y_train)
 
 
 logging.info('Training model finished')
 
 
-y_train_pred = multioutputregressor.predict(X_train)
-y_test_pred = multioutputregressor.predict(X_test)
+y_train_pred = pipe.predict(X_train)
+y_test_pred = pipe.predict(X_test)
 
 logging.debug(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.debug(f'test log loss : {log_loss(y_test, y_test_pred)}')
 
+end = time.perf_counter()
+logging.debug(f'runtime: {round((end-start)/60,1)} m')
 
-print('DEBUG:root:training log loss: 0.16495482186892862    \
-    DEBUG:root:test log loss : 2.727398407356135           \
-    20 min runtime') # deleting cp_type has little to no impact on the results and neither do the highly correlated features

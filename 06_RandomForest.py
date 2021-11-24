@@ -3,11 +3,12 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.multioutput import MultiOutputRegressor
-import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import log_loss
 import logging
+import time
 
+start = time.perf_counter()
 ## PREPROCESSING
 logging.basicConfig(level=logging.DEBUG)
 
@@ -35,19 +36,22 @@ for col in ['cp_dose']:
 
 ## XGBoost MODEL
 logging.info('Training model')
-multioutputregressor = MultiOutputRegressor(xgb.XGBRegressor(tree_method='gpu_hist', objective='reg:logistic', eval_metric='logloss')).fit(X_train, y_train)
-
+random_forrest = RandomForestRegressor(max_depth=10, random_state=174, n_jobs=4)
+random_forrest.fit(X_train, y_train)
 
 logging.info('Training model finished')
 
 
-y_train_pred = multioutputregressor.predict(X_train)
-y_test_pred = multioutputregressor.predict(X_test)
+y_train_pred = random_forrest.predict(X_train)
+y_test_pred = random_forrest.predict(X_test)
 
 logging.debug(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.debug(f'test log loss : {log_loss(y_test, y_test_pred)}')
+end = time.perf_counter()
+logging.debug(f'runtime: {round((end-start)/60,1)} m')
 
 
-print('DEBUG:root:training log loss: 0.16495482186892862    \
-    DEBUG:root:test log loss : 2.727398407356135           \
-    20 min runtime') # deleting cp_type has little to no impact on the results and neither do the highly correlated features
+
+# DEBUG:root:training log loss: 2.521059316604307
+# DEBUG:root:test log loss : 2.703595872539878
+# DEBUG:root:runtime: 32.1 m
