@@ -1,18 +1,17 @@
 import pandas as pd
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import  train_test_split, GridSearchCV#RandomizedSearchCV
-from sklearn.pipeline import Pipeline
+from sklearn.multioutput import RegressorChain
+import xgboost as xgb
 from sklearn.metrics import log_loss
 import logging
 import time
 
-
-logging.basicConfig(level=logging.DEBUG)
-logging.info(f'start @ {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-start = time.perf_counter()
 ## PREPROCESSING
-
+logging.basicConfig(level=logging.INFO)
+start = time.perf_counter()
 
 X_data = pd.read_csv('MechanismOfAction/train_features.csv')
 y_data = pd.read_csv('MechanismOfAction/train_targets_scored.csv')
@@ -24,7 +23,7 @@ y_data.drop(columns=['sig_id'], inplace=True)
 X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, 
                                                     test_size=0.2, 
                                                     random_state=174)
-logging.debug(f'Length of X_train: {len(X_train)}, {type(X_train)}')
+logging.info(f'Length of X_train: {len(X_train)}, {type(X_train)}')
 
 # no missing values present in data
 
@@ -37,35 +36,19 @@ for col in ['cp_dose']:
 
 
 ## XGBoost MODEL
-random_forest = RandomForestRegressor( random_state=174)
-pipe = Pipeline([
-    ('rf_model', random_forest)
-])
-
-params = {'rf_model__max_depth': [5, 10],
-            # 'rf_model__min_samples_split' : [2, 5],
-            # 'rf_model__min_samples_leaf' : [1, 2, 5]
-}
-
 logging.info('Training model')
-search = GridSearchCV(pipe, params, cv=3, n_jobs=-2, verbose=2)
-search.fit(X_train, y_train)
+regressor_chain = RegressorChain(xgb.XGBRegressor(tree_method='gpu_hist', objective='reg:logistic', eval_metric='logloss'), random_state=174).fit(X_train, y_train)
+
 
 logging.info('Training model finished')
 
 
-y_train_pred = search.predict(X_train)
-y_test_pred = search.predict(X_test)
+y_train_pred = regressor_chain.predict(X_train)
+y_test_pred = regressor_chain.predict(X_test)
 
 logging.info(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.info(f'test log loss : {log_loss(y_test, y_test_pred)}')
 end = time.perf_counter()
 logging.info(f'runtime: {round((end-start)/60,1)} m')
-logging.info(f'best param: {search.best_params_}')
-
-
-
-# max_depth = 10
-# DEBUG:root:training log loss: 2.521059316604307
-# DEBUG:root:test log loss : 2.703595872539878
-# DEBUG:root:runtime: 32.1 m
+# INFO:root:training log loss: 0.31634226851778946
+# INFO:root:test log loss : 2.7886626381803423

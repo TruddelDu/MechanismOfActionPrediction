@@ -1,18 +1,19 @@
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import  train_test_split, GridSearchCV#RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import log_loss
 import logging
 import time
 
+start = time.perf_counter()
 
+## PREPROCESSING
 logging.basicConfig(level=logging.DEBUG)
 logging.info(f'start @ {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-start = time.perf_counter()
-## PREPROCESSING
-
 
 X_data = pd.read_csv('MechanismOfAction/train_features.csv')
 y_data = pd.read_csv('MechanismOfAction/train_targets_scored.csv')
@@ -24,44 +25,47 @@ y_data.drop(columns=['sig_id'], inplace=True)
 X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, 
                                                     test_size=0.2, 
                                                     random_state=174)
-logging.debug(f'Length of X_train: {len(X_train)}, {type(X_train)}')
 
 # no missing values present in data
 
-# Labelencoding cp_dose
-label_encoder = LabelEncoder()
-for col in ['cp_dose']:
-    X_train[col] = label_encoder.fit_transform(X_train[col])
-    X_test[col] = label_encoder.transform(X_test[col])
+# Onehot encoding cp_type
+one_hot = OneHotEncoder(drop='if_binary')
 
-
+categ_encode = ColumnTransformer([
+    ('onehot', one_hot, ['cp_dose'])],
+    remainder='passthrough')
 
 ## XGBoost MODEL
-random_forest = RandomForestRegressor( random_state=174)
+
+random_forest = RandomForestRegressor(max_depth=10, random_state=174)
+
 pipe = Pipeline([
+    ('preproc', categ_encode),
     ('rf_model', random_forest)
 ])
 
-params = {'rf_model__max_depth': [5, 10],
-            # 'rf_model__min_samples_split' : [2, 5],
-            # 'rf_model__min_samples_leaf' : [1, 2, 5]
+params = {'rf_model__max_depth': [15],
+#            'rf_model__min_samples_split' : [2, 5, 8],
+#            'rf_model__min_samples_leaf' : [1, 2, 5]
 }
 
+
+#search = RandomizedSearchCV(pipe, params,cv=3, scoring='neg_log_loss', n_jobs=-2, verbose=2)
+
 logging.info('Training model')
-search = GridSearchCV(pipe, params, cv=3, n_jobs=-2, verbose=2)
-search.fit(X_train, y_train)
+pipe.fit(X_train, y_train)
 
 logging.info('Training model finished')
 
 
-y_train_pred = search.predict(X_train)
-y_test_pred = search.predict(X_test)
+y_train_pred = pipe.predict(X_train)
+y_test_pred = pipe.predict(X_test)
 
 logging.info(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.info(f'test log loss : {log_loss(y_test, y_test_pred)}')
 end = time.perf_counter()
 logging.info(f'runtime: {round((end-start)/60,1)} m')
-logging.info(f'best param: {search.best_params_}')
+#logging.info(f'best param: {search.best_params_}')
 
 
 

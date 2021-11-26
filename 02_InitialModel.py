@@ -1,10 +1,9 @@
 import pandas as pd
-from scipy.sparse.construct import random
-import seaborn as sns
-import matplotlib.pyplot as plt
+# import seaborn as sns
+# import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import log_loss
 import logging
 
@@ -14,7 +13,9 @@ logging.basicConfig(level=logging.DEBUG)
 X_data = pd.read_csv('MechanismOfAction/train_features.csv')
 y_data = pd.read_csv('MechanismOfAction/train_targets_scored.csv')
 
-X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.2, random_state=174)
+X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, 
+                                                    test_size=0.2, 
+                                                    random_state=174)
 logging.debug(f'Length of X_train: {len(X_train)}, {type(X_train)}')
 
 # no missing values present in data
@@ -36,9 +37,10 @@ X_test.drop(columns=['sig_id'], inplace=True)
 y_test.drop(columns=['sig_id'], inplace=True)
 
 ## ROUGH MODEL
-reg = LogisticRegression(multi_class='multinomial', random_state=174)
-
+reg = DecisionTreeClassifier(random_state=174)
+logging.info('Training model')
 reg.fit(X_train, y_train)
+logging.info('Training model finished')
 
 y_train_pred = reg.predict(X_train)
 y_test_pred = reg.predict(X_test)
@@ -46,3 +48,6 @@ y_test_pred = reg.predict(X_test)
 logging.debug(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.debug(f'test log loss : {log_loss(y_test, y_test_pred)}')
 
+
+print('DEBUG:root:training log loss: 0.15360432849420547 \
+DEBUG:root:test log loss : 14.039272039044583')
