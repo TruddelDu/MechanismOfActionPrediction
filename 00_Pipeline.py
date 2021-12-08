@@ -70,6 +70,6 @@ logging.info(f'runtime: {round((end-start)/60,1)} m')
 
 
 # max_depth = 10
-# DEBUG:root:training log loss: 2.521059316604307
-# DEBUG:root:test log loss : 2.703595872539878
-# DEBUG:root:runtime: 32.1 m
+# INFO:root:training log loss: 2.5207619708942044
+# INFO:root:test log loss : 2.7044928690471757
+# INFO:root:runtime: 103.8 m

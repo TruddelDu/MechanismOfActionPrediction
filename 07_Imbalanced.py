@@ -19,13 +19,6 @@ multioutput tasks are currently not supported by imblearn
 #########################
 
 
-
-
-
-
-
-
-
 start = time.perf_counter()
 ## PREPROCESSING
 logging.basicConfig(level=logging.DEBUG)

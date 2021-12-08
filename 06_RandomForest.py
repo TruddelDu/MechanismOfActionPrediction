@@ -6,7 +6,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import log_loss
 import logging
 import time
+import joblib
 
+
+# Random Forest has lower error values from the start than XGBoost but takes twice as long - 
+# I'll continue with XGBoost due to time 
 
 logging.basicConfig(level=logging.DEBUG)
 logging.info(f'start @ {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
@@ -34,34 +38,35 @@ for col in ['cp_dose']:
     X_train[col] = label_encoder.fit_transform(X_train[col])
     X_test[col] = label_encoder.transform(X_test[col])
 
-
+joblib.dump(X_test, 'X_test.pickle', compress=('xz', 9))
+joblib.dump(y_test, 'y_test.pickle', compress=('xz', 9))
 
 ## XGBoost MODEL
-random_forest = RandomForestRegressor( random_state=174)
+random_forest = RandomForestRegressor(max_depth=5, random_state=174)
 pipe = Pipeline([
     ('rf_model', random_forest)
 ])
 
-params = {'rf_model__max_depth': [5, 10],
-            # 'rf_model__min_samples_split' : [2, 5],
-            # 'rf_model__min_samples_leaf' : [1, 2, 5]
-}
+# params = {'rf_model__max_depth': [5, 10],
+#             # 'rf_model__min_samples_split' : [2, 5],
+#             # 'rf_model__min_samples_leaf' : [1, 2, 5]
+# }
 
 logging.info('Training model')
-search = GridSearchCV(pipe, params, cv=3, n_jobs=-2, verbose=2)
-search.fit(X_train, y_train)
+# search = GridSearchCV(pipe, params, cv=3, n_jobs=-2, verbose=2)
+pipe.fit(X_train, y_train)
 
 logging.info('Training model finished')
 
 
-y_train_pred = search.predict(X_train)
-y_test_pred = search.predict(X_test)
+y_train_pred = pipe.predict(X_train)
+y_test_pred = pipe.predict(X_test)
 
 logging.info(f'training log loss: {log_loss(y_train, y_train_pred)}')
 logging.info(f'test log loss : {log_loss(y_test, y_test_pred)}')
 end = time.perf_counter()
 logging.info(f'runtime: {round((end-start)/60,1)} m')
-logging.info(f'best param: {search.best_params_}')
+# logging.info(f'best param: {search.best_params_}')
 
 
 

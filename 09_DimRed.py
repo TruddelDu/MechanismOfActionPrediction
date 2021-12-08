@@ -1,18 +1,35 @@
 import pandas as pd 
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split, GridSearchCV # RandomizedSearchCV
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import log_loss
 from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+import xgboost as xgb
 import logging
 import time
 
+## configuration of logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-logging.basicConfig(level=logging.DEBUG)
-logging.info(f'start @ {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+
+file_handler = logging.FileHandler('DimRed_testing.log')
+file_handler.setFormatter(formatter)
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
+logger.info(f'start @ {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
 start = time.perf_counter()
+
+
+# Start model
 
 X_data = pd.read_csv('MechanismOfAction/train_features.csv')
 y_data = pd.read_csv('MechanismOfAction/train_targets_scored.csv')
@@ -26,8 +43,8 @@ X_train, X_test, y_train, y_test = train_test_split(X_data, y_data,
                                                     random_state=174)
 
 
-# Labelencoding cp_dose
-label_encoder = LabelEncoder()
+# Onehot encoding cp_type
+one_hot = OneHotEncoder(drop='if_binary')
 
 # PCA
 genes = [col for col in X_train.columns if col[:2]=='g-']
@@ -36,40 +53,47 @@ cell_lines = [col for col in X_train.columns if col[:2]=='c-']
 pca_genes = PCA(random_state=174) # n_components=50
 pca_cells = PCA(random_state=174)  # n_components=15
 
-categ_encode = ColumnTransformer([
-    ('label_enc', label_encoder, ['cp_dose'])], 
-    ('pca_genes', pca_genes),
-    ('pca_genes', pca_cells),
+preproc_transformer = ColumnTransformer([
+    ('onehot', one_hot, ['cp_dose']), 
+    # ('pca_genes', pca_genes, genes),#[list(X_train.columns).index(col) for col in genes]),
+    ('pca_cells', pca_cells, cell_lines)],#[list(X_train.columns).index(col) for col in cell_lines])],
     remainder='passthrough')
 
 
-random_forest = RandomForestRegressor( random_state=174)
+## XGBoost MODEL
+multioutputregressor = MultiOutputRegressor(xgb.XGBRegressor(tree_method='gpu_hist', eval_metric='logloss'))
 
 pipe = Pipeline([
-    ('preproc', categ_encode),
-    ('rf_model', random_forest)
+    ('preproc', preproc_transformer),
+    ('xgb model', multioutputregressor)
 ])
 
-logging.info(sorted(pipe.get_params().keys()))
 
-params = {'rf_model__max_depth': [5, 10, 15],
-            'rf_model__min_samples_split' : [2, 5, 8],
-            'rf_model__min_samples_leaf' : [1, 2, 5]
+params = {'preproc__pca_cells__n_components':  range(5,26,5) , #100 original cell features --> range(5,26,5)
+            # 'preproc__pca_genes__n_components' : range(40,201,40), #772 original gene features --> range(40,201,40)
+            
 }
 
-search = RandomizedSearchCV(pipe, params,cv=3, scoring='neg_log_loss', n_jobs=-2, verbose=2)
+cv_splits = 2
+search = GridSearchCV(pipe, params, cv=cv_splits, n_jobs=-2, verbose=2)
 
-logging.info('Training model')
+logger.info(f'GridSearch CV splits = {cv_splits}')
+
+logger.info('Training model')
 search.fit(X_train, y_train)
 
-logging.info('Training model finished')
+logger.info('Training model finished')
+
+
+for k,i in params.items():
+    logger.info(f'tested hyperparameters: {k}: {i}')
 
 
 y_train_pred = search.predict(X_train)
 y_test_pred = search.predict(X_test)
 
-logging.info(f'training log loss: {log_loss(y_train, y_train_pred)}')
-logging.info(f'test log loss : {log_loss(y_test, y_test_pred)}')
+logger.info(f'training log loss: {log_loss(y_train, y_train_pred)}')
+logger.info(f'test log loss : {log_loss(y_test, y_test_pred)}')
 end = time.perf_counter()
-logging.info(f'runtime: {round((end-start)/60,1)} m')
-logging.info(f'best param: {search.best_params_}')
+logger.info(f'runtime: {round((end-start)/60,1)} m')
+logger.info(f'best param: {search.best_params_}')
