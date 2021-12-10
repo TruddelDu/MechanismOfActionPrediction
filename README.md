@@ -20,9 +20,13 @@ As my model I used the XGBClassifier wrapped in sklearns OneVsRestClassifier wit
 - eval_metric='logloss'
 - subsample = 0.75
 - use_label_encoder=False
-## Other Attempts
-...coming soon
-## Note to the Error function
+## Other attempts
+### Model selection
+Besides XGBoostClassifier I also tried DesicionTreeClassifier, RandomForestClassifier, KNeighborsClassifier and TabnetClassifier.
+Parameter tuning was only applied to XGBoostClassifier as it provided better inital predictions than both the DesicionTreeClassifier and KNeighborsClassifier. While the RandomForest model provided slightly better predictions it took 1.5-times as long to build. The TabnetClassifier model was to computationally heavy for my hardware to compute fast enough.
+### Feature engineering
+... coming soon
+## Note to the error function
 ... coming soon (What is log loss?
 Why are the log loss in my scripts and on kaggle different?)
 ## Technologies
