@@ -23,12 +23,17 @@ As my model I used the XGBClassifier wrapped in sklearns OneVsRestClassifier wit
 ## Other attempts
 ### Model selection
 Besides XGBoostClassifier I also tried DesicionTreeClassifier, RandomForestClassifier, KNeighborsClassifier and TabnetClassifier.
-Parameter tuning was only applied to XGBoostClassifier as it provided better inital predictions than both the DesicionTreeClassifier and KNeighborsClassifier. While the RandomForest model provided slightly better predictions it took 1.5-times as long to build. The TabnetClassifier model was to computationally heavy for my hardware to compute fast enough.
+Parameter tuning was only applied to XGBoostClassifier as it provided better inital predictions than both the DesicionTreeClassifier and KNeighborsClassifier. While the RandomForest model provided slightly better predictions it took 1.5-times as long to build. The TabnetClassifier model was to computationally heavy for my hardware.
 ### Feature engineering
-... coming soon
-## Note to the error function
-... coming soon (What is log loss?
-Why are the log loss in my scripts and on kaggle different?)
+Inspired from practices from microbiology I tested whether the fold-change of measurements (compared to the controls) instead of the absolute value would improve predictions. For this, I determined the mean of all features in controls per dose and incubation time. These showed a high variance. Then, I diveded each sample by the corresponding control-mean. This increased the summed log loss (see below) from 2.8 to 3.9 and was not persued further. 
+
+Furthermore, I tested both Principal Component Analysis (PCA) and K-Best selection. PCA was performed seperately for genetic and cell viability data. Both methods decreased prediction quality. K-Best selected features did not impair prediction quality to badly and improved computation time drastically. However, the predictions made with K-Best selected features were unable to beat predictions made with all features.
+
+So far, these new features were only used **instead** of the original features. As the fold-changes and PCA might hold more easily accessible information to the original features using all of these together might improve  predictions. 
+## Note to the cost function
+Log loss was used as the cost function in this project. Log loss is the negative average of the log of corrected predicted probabilities for each instance and is as such well suited for cost determination in classificatoin problems using probabilities.
+
+To score my predictions of the internal test dataset I used sklearns log loss function. This function calculates the average log loss per sample summed over all features. Kaggle however uses a different log loss function to score the submissions. Here, the log loss is determined as the average per sample **and** feature. Both versions of the log loss function are proportional to each other, which means that sklearns summed log loss can be used for internal scoring even though the final score is determined slightly differently by kaggle.  
 ## Technologies
 The project was created with:
 - pandas 1.3.4
